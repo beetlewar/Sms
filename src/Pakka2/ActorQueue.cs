@@ -22,7 +22,7 @@ namespace Pakka
             _repository = repository;
             _token = token;
 
-            _lastTask = Task.Run(() => { });
+            _lastTask = Task.CompletedTask;
         }
 
         public void Enqueue(IMessage message)
