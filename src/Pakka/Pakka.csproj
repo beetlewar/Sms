@@ -65,11 +65,15 @@
     <Compile Include="Port\ITaskRunIdProvider.cs" />
     <Compile Include="Port\ScanTarget.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Repository\ActorRepositoryLocator.cs" />
+    <Compile Include="Repository\ActorUnitOfWorkLocator.cs" />
     <Compile Include="Repository\AgentRepository.cs" />
     <Compile Include="Repository\IActorRepository.cs" />
+    <Compile Include="Repository\INotificationRepository.cs" />
+    <Compile Include="Repository\IUnitOfWork.cs" />
+    <Compile Include="Repository\NotificationRepository.cs" />
     <Compile Include="Repository\TaskRunRepository.cs" />
     <Compile Include="Repository\TaskRepository.cs" />
+    <Compile Include="Repository\UnitOfWork.cs" />
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

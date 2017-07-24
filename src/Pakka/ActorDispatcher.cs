@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Threading;
 using Pakka.Repository;
 
@@ -7,13 +7,14 @@ namespace Pakka
 {
 	public class ActorDispatcher
 	{
-		private readonly ConcurrentDictionary<Tuple<string, Guid>, ActorQueue> _actorQueues;
-		private readonly ActorRepositoryLocator _actoryRepositoryLocator;
+		private readonly object _sync = new object();
+		private readonly Dictionary<Tuple<string, Guid>, ActorQueue> _actorQueues;
+		private readonly ActorUnitOfWorkLocator _actoryRepositoryLocator;
 		private readonly CancellationToken _token;
 
-		public ActorDispatcher(ActorRepositoryLocator actoryRepositoryLocator, CancellationToken token)
+		public ActorDispatcher(ActorUnitOfWorkLocator actoryRepositoryLocator, CancellationToken token)
 		{
-			_actorQueues = new ConcurrentDictionary<Tuple<string, Guid>, ActorQueue>();
+			_actorQueues = new Dictionary<Tuple<string, Guid>, ActorQueue>();
 			_actoryRepositoryLocator = actoryRepositoryLocator;
 			_token = token;
 		}
@@ -22,14 +23,34 @@ namespace Pakka
 		{
 			ActorQueue actorQueue;
 			var key = new Tuple<string, Guid>(notification.ActorType, notification.ActorId);
-			if (!_actorQueues.TryGetValue(key, out actorQueue))
+
+			lock (_sync)
 			{
-				var repository = _actoryRepositoryLocator.Locate(notification.ActorType);
-				actorQueue = new ActorQueue(this, repository, _token);
-				_actorQueues[key] = actorQueue;
+				if (!_actorQueues.TryGetValue(key, out actorQueue))
+				{
+					var repository = _actoryRepositoryLocator.Locate(notification.ActorType);
+					actorQueue = new ActorQueue(this, repository, _token);
+					_actorQueues[key] = actorQueue;
+				}
 			}
 
 			actorQueue.Enqueue(notification);
+		}
+
+		public void Restore()
+		{
+			foreach (var unitOfWorkLocator in _actoryRepositoryLocator.GetAll())
+			{
+				RestoreNotifications(unitOfWorkLocator.ActorType, unitOfWorkLocator.GetNotificationRepository());
+			}
+		}
+
+		private void RestoreNotifications(string actorType, INotificationRepository notificationRepository)
+		{
+			foreach (var pendingNotification in notificationRepository.GetPendingNotifications(actorType))
+			{
+				Dispatch(pendingNotification);
+			}
 		}
 	}
 }

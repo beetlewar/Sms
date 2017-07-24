@@ -8,8 +8,6 @@ namespace Pakka.Repository
 	{
 		private readonly ConcurrentDictionary<Guid, Task> _tasks = new ConcurrentDictionary<Guid, Task>();
 
-		public string ActorType => ActorTypes.Task;
-
 		public IActor GetOrCreate(Guid id)
 		{
 			Task task;

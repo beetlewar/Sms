@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Pakka.Repository;
@@ -9,24 +11,28 @@ namespace Pakka
 	{
 		private readonly object _syncTask = new object();
 		private Task _lastTask;
-		private readonly IActorRepository _repository;
 		private readonly CancellationToken _token;
 		private readonly ActorDispatcher _actorDispatcher;
+		private readonly IUnitOfWork _unitOfWork;
 
 		public ActorQueue(
 			ActorDispatcher actorDispatcher,
-			IActorRepository repository,
+			IUnitOfWork unitOfWork,
 			CancellationToken token)
 		{
 			_actorDispatcher = actorDispatcher;
-			_repository = repository;
+			_unitOfWork = unitOfWork;
 			_token = token;
 
 			_lastTask = Task.Run(() => { });
 		}
 
-		public void Enqueue(Notification notification)
+		public Task Enqueue(Notification notification)
 		{
+			var notificationRepository = _unitOfWork.GetNotificationRepository();
+
+			notificationRepository.Save(new[] {notification});
+
 			lock (_syncTask)
 			{
 				_lastTask = _lastTask.ContinueWith(t =>
@@ -40,18 +46,33 @@ namespace Pakka
 						Console.WriteLine(e);
 					}
 				}, _token);
+
+				return _lastTask;
 			}
 		}
 
 		private void Execute(Notification notification)
 		{
-			var actor = _repository.GetOrCreate(notification.ActorId);
+			Notification[] newNotifications;
 
-			var notifications = actor.Execute(notification.Message);
+			using (_unitOfWork.BeginTransaction())
+			{
+				var notificationRepository = _unitOfWork.GetNotificationRepository();
 
-			_repository.Update(actor);
+				notificationRepository.MarkAsProcessed(notification.ActorType, notification.ActorId);
 
-			foreach (var newNotification in notifications)
+				var actorRepository = _unitOfWork.GetActorRepository();
+
+				var actor = actorRepository.GetOrCreate(notification.ActorId);
+
+				newNotifications = actor.Execute(notification.Message).ToArray();
+
+				notificationRepository.Save(newNotifications);
+
+				actorRepository.Update(actor);
+			}
+
+			foreach (var newNotification in newNotifications)
 			{
 				_actorDispatcher.Dispatch(newNotification);
 			}

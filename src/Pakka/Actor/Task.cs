@@ -33,8 +33,7 @@ namespace Pakka.Actor
 
 			State = TaskState.CreatingTaskRun;
 
-			yield return new Notification(ActorTypes.TaskRun, TaskRunId.Value,
-				new CreateTaskRun(TaskRunId.Value, Id, message.IsAbc));
+			yield return new Notification(ActorTypes.TaskRun, TaskRunId.Value, new CreateTaskRun(TaskRunId.Value, Id, message.IsAbc));
 		}
 
 		private IEnumerable<Notification> When(TaskRunCreated message)

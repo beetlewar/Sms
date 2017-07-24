@@ -11,8 +11,6 @@ namespace Pakka.Repository
 
 		private readonly ITaskRunIdProvider _taskIdProvider;
 
-		public string ActorType => ActorTypes.Agent;
-
 		public AgentRepository(ITaskRunIdProvider taskIdProvider)
 		{
 			_taskIdProvider = taskIdProvider;

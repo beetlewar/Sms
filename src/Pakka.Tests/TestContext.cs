@@ -25,11 +25,13 @@ namespace Pakka.Tests
 			_taskRepository = new TaskRepository();
 			_agentRepository = new AgentRepository(_taskRunRepository);
 
-			var actorRepositoryLocator = new ActorRepositoryLocator(
-				_agentRepository,
-				_taskRepository,
-				_taskRunRepository,
-				agentGatewayActorRepositoryStub);
+			var notificationRepository = new NotificationRepository();
+
+			var actorRepositoryLocator = new ActorUnitOfWorkLocator(
+				new UnitOfWork(ActorTypes.Agent, _agentRepository, notificationRepository),
+				new UnitOfWork(ActorTypes.Task, _taskRepository, notificationRepository),
+				new UnitOfWork(ActorTypes.TaskRun, _taskRunRepository, notificationRepository),
+				new UnitOfWork(ActorTypes.AgentJobGateway, agentGatewayActorRepositoryStub, notificationRepository));
 
 			_actorDispatcher = new ActorDispatcher(
 				actorRepositoryLocator,

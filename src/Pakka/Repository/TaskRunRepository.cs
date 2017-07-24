@@ -11,8 +11,6 @@ namespace Pakka.Repository
 		private readonly ConcurrentDictionary<Guid, TaskRun> _taskRuns = new ConcurrentDictionary<Guid, TaskRun>();
 		private readonly IDecomposer _decomposer;
 
-		public string ActorType => ActorTypes.TaskRun;
-
 		public TaskRunRepository(IDecomposer decomposer)
 		{
 			_decomposer = decomposer;
