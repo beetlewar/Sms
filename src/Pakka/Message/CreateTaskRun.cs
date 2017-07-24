@@ -8,10 +8,13 @@ namespace Pakka.Message
 
 		public Guid TaskId { get; }
 
-		public CreateTaskRun(Guid id, Guid taskId)
+		public bool IsAbc { get; }
+
+		public CreateTaskRun(Guid id, Guid taskId, bool isAbc)
 		{
 			Id = id;
 			TaskId = taskId;
+			IsAbc = isAbc;
 		}
 	}
 }

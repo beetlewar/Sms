@@ -2,26 +2,47 @@
 using Pakka.Port;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Pakka.Tests.Stub
 {
 	public class DecomposerStub : IDecomposer
 	{
-		private readonly int _numJobs;
-		private readonly Guid _agentId;
+		public Guid AgentId { get; }
 
-		public DecomposerStub(int numJobs, Guid agentId)
+		public ScanTarget[] ScanTargets { get; private set; }
+
+		public DecomposerStub(Guid agentId)
 		{
-			_numJobs = numJobs;
-			_agentId = agentId;
+			AgentId = agentId;
+			ScanTargets = new ScanTarget[0];
 		}
 
-		public IEnumerable<Guid> Decompose()
+		public DecomposerStub WithTargets(int count)
 		{
-			for (var i = 0; i < _numJobs; i++)
+			ScanTargets = CreateScanTargets(count).ToArray();
+
+			return this;
+		}
+
+		private IEnumerable<ScanTarget> CreateScanTargets(int count)
+		{
+			for (var i = 0; i < count; i++)
 			{
-				yield return _agentId;
+				yield return new ScanTarget(AgentId, "192.168.0." + (i + 1));
 			}
+		}
+
+		public DecomposerStub WithHD()
+		{
+			ScanTargets = new[] {new ScanTarget(AgentId, "192.168.1.1")};
+
+			return this;
+		}
+
+		public IEnumerable<ScanTarget> Decompose()
+		{
+			return ScanTargets;
 		}
 	}
 }

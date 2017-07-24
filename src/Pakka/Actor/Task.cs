@@ -29,10 +29,12 @@ namespace Pakka.Actor
 
 		private IEnumerable<Notification> When(RunTask message)
 		{
-			TaskRunId = Guid.NewGuid();
+			TaskRunId = message.TaskRunId;
+
 			State = TaskState.CreatingTaskRun;
 
-			yield return new Notification(ActorTypes.TaskRun, TaskRunId.Value, new CreateTaskRun(TaskRunId.Value, Id));
+			yield return new Notification(ActorTypes.TaskRun, TaskRunId.Value,
+				new CreateTaskRun(TaskRunId.Value, Id, message.IsAbc));
 		}
 
 		private IEnumerable<Notification> When(TaskRunCreated message)

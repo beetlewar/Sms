@@ -63,6 +63,7 @@
     <Compile Include="Stub\AgentGatewayActorStub.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Stub\DecomposerStub.cs" />
+    <Compile Include="TestContext.cs" />
     <Compile Include="UseCaseTests.cs" />
   </ItemGroup>
   <ItemGroup>

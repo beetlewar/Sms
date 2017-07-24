@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Pakka.Message;
 
 namespace Pakka.Actor
@@ -11,10 +12,13 @@ namespace Pakka.Actor
 
 		public Guid AgentId { get; }
 
-		public Job(Guid id, Guid agentId)
+		public string Target { get; }
+
+		public Job(Guid id, Guid agentId, string target)
 		{
 			Id = id;
 			AgentId = agentId;
+			Target = target;
 		}
 
 		public Notification StartJob()

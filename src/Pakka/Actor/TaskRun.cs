@@ -8,8 +8,11 @@ namespace Pakka.Actor
 {
 	public class TaskRun : IActor
 	{
+		private Guid? _abcHdJobId;
+		private readonly Queue<Job> _pendingJobs = new Queue<Job>();
 		private readonly List<Job> _jobs = new List<Job>();
 		private readonly IDecomposer _decomposer;
+		private bool _isAbc;
 
 		public Guid Id { get; }
 
@@ -32,12 +35,27 @@ namespace Pakka.Actor
 
 		private IEnumerable<Notification> When(CreateTaskRun message)
 		{
+			_isAbc = message.IsAbc;
+
 			TaskId = message.TaskId;
 
-			foreach (var agentId in _decomposer.Decompose())
+			var decomposeResult = _decomposer.Decompose().ToArray();
+
+			if (_isAbc && decomposeResult.Length != 1)
 			{
-				var job = new Job(Guid.NewGuid(), agentId);
-				_jobs.Add(job);
+				throw new InvalidOperationException("ABC must be decomposed into 1 job");
+			}
+
+			foreach (var scanTarget in decomposeResult)
+			{
+				var job = CreateJob(scanTarget);
+
+				if (_isAbc)
+				{
+					_abcHdJobId = job.Id;
+				}
+
+				_pendingJobs.Enqueue(job);
 			}
 
 			State = TaskRunState.Waiting;
@@ -46,9 +64,21 @@ namespace Pakka.Actor
 			yield return new Notification(ActorTypes.TaskRun, Id, new StartJobs());
 		}
 
+		private static Job CreateJob(ScanTarget scanTarget)
+		{
+			var job = new Job(Guid.NewGuid(), scanTarget.AgentId, scanTarget.Target);
+			return job;
+		}
+
 		private IEnumerable<Notification> When(StartJobs message)
 		{
-			return _jobs.Select(j => j.StartJob());
+			while (_pendingJobs.Count > 0)
+			{
+				var pendingJob = _pendingJobs.Dequeue();
+				_jobs.Add(pendingJob);
+
+				yield return pendingJob.StartJob();
+			}
 		}
 
 		private IEnumerable<Notification> When(JobEnqueued message)
@@ -67,6 +97,26 @@ namespace Pakka.Actor
 			State = TaskRunState.Running;
 
 			yield break;
+		}
+
+		public IEnumerable<Notification> When(JobResult message)
+		{
+			if (!_isAbc)
+			{
+				yield break;
+			}
+
+			if (message.Id != _abcHdJobId)
+			{
+				yield break;
+			}
+
+			foreach (var messageTarget in message.Targets)
+			{
+				_pendingJobs.Enqueue(CreateJob(messageTarget));
+			}
+
+			yield return new Notification(ActorTypes.TaskRun, Id, new StartJobs());
 		}
 
 		public IEnumerable<Notification> When(JobFinished message)

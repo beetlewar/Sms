@@ -57,5 +57,12 @@ namespace Pakka.Actor
 
 			yield return new Notification(ActorTypes.TaskRun, taskId, message);
 		}
+
+		private IEnumerable<Notification> When(JobResult message)
+		{
+			var taskId = _taskIdProvider.GetByJobId(message.Id);
+
+			yield return new Notification(ActorTypes.TaskRun, taskId, message);
+		}
 	}
 }

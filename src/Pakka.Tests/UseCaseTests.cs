@@ -1,7 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using Pakka.Actor;
 using Pakka.Message;
+using Pakka.Port;
 using Pakka.Repository;
 using Xunit;
 using Pakka.Tests.Stub;
@@ -10,68 +13,57 @@ namespace Pakka.Tests
 {
 	public class UseCaseTests
 	{
-		private readonly ActorRepositoryLocator _actorRepositoryLocator;
-		private readonly CancellationTokenSource _tokenSource;
-		private readonly ActorDispatcher _actorDispatcher;
-
-		public UseCaseTests()
+		[Fact]
+		public void Pentest()
 		{
 			var agentId = Guid.NewGuid();
+			var decomposer = new DecomposerStub(agentId).WithTargets(2);
 
-			var decomposer = new DecomposerStub(10, agentId);
+			var taskId = Guid.NewGuid();
+			var testContext = new TestContext(decomposer, new AgentGatewayActorRepositoryStub())
+				.WithAgent(agentId)
+				.WithTask(taskId);
 
-			var taskRunRepository = new TaskRunRepository(decomposer);
+			var taskRunId = Guid.NewGuid();
 
-			_actorRepositoryLocator = new ActorRepositoryLocator(
-				new AgentRepository(taskRunRepository),
-				new TaskRepository(),
-				taskRunRepository,
-				new AgentGatewayActorRepositoryStub());
+			testContext.Dispatch(new Notification(ActorTypes.Task, taskId, new RunTask(taskId, taskRunId, false)));
 
-			_tokenSource = new CancellationTokenSource();
-
-			_actorDispatcher = new ActorDispatcher(
-				_actorRepositoryLocator,
-				_tokenSource.Token);
-
-			_actorRepositoryLocator.Locate(ActorTypes.Agent).GetOrCreate(agentId);
+			Assert.True(testContext.WaitTaskRunFinished(taskRunId, 5));
 		}
 
 		[Fact]
-		public void Audit()
+		public void Abc()
 		{
+			var agentId = Guid.NewGuid();
+			var decomponser = new DecomposerStub(agentId).WithHD();
+
+			var hdScanTargets = new[]
+			{
+				new ScanTarget(agentId, "192.168.2.0"),
+				new ScanTarget(agentId, "192.168.2.1"),
+				new ScanTarget(agentId, "192.168.2.2"),
+			};
+
+			var actorRepositoryStub = new AgentGatewayActorRepositoryStub()
+				.WithCreateActorFunc(
+					id => new AgentGatewayActorStub(id).WithJobResultsFunc(sj => GetHDJobResults(sj, hdScanTargets)));
+
 			var taskId = Guid.NewGuid();
+			var testContext = new TestContext(decomponser, actorRepositoryStub)
+				.WithAgent(agentId)
+				.WithTask(taskId);
 
-			_actorDispatcher.Dispatch(new Notification(ActorTypes.Task, taskId, new CreateTask(taskId)));
-			_actorDispatcher.Dispatch(new Notification(ActorTypes.Task, taskId, new RunTask(taskId)));
+			var taskRunId = Guid.NewGuid();
 
-			const int timeoutSec = 10;
+			testContext.Dispatch(new Notification(ActorTypes.Task, taskId, new RunTask(taskId, taskRunId, true)));
 
-			Assert.True(WaitTaskRunFinished(taskId, timeoutSec));
-
-			_tokenSource.Cancel();
+			Assert.True(testContext.WaitTaskRunFinished(taskRunId, 5));
+			Assert.True(testContext.WaitJobsFinished(taskRunId, hdScanTargets, 5));
 		}
 
-		private bool WaitTaskRunFinished(Guid taskId, int seconds)
+		private IEnumerable<JobResult> GetHDJobResults(StartJob startJob, ScanTarget[] scanTargets)
 		{
-			for (var i = 0; i < seconds; i++)
-			{
-				Thread.Sleep(TimeSpan.FromSeconds(1));
-
-				var task = (Task) _actorRepositoryLocator.Locate(ActorTypes.Task).GetOrCreate(taskId);
-				if (!task.TaskRunId.HasValue || task.State != Task.TaskState.Idle)
-				{
-					continue;
-				}
-
-				var taskRun = (TaskRun) _actorRepositoryLocator.Locate(ActorTypes.TaskRun).GetOrCreate(task.TaskRunId.Value);
-				if (taskRun.State == TaskRun.TaskRunState.Finished)
-				{
-					return true;
-				}
-			}
-
-			return false;
+			return scanTargets.Select(st => new JobResult(startJob.JobId, new[] {st}));
 		}
 	}
 }

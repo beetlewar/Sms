@@ -6,9 +6,15 @@ namespace Pakka.Message
 	{
 		public Guid Id { get; }
 
-		public RunTask(Guid id)
+		public Guid TaskRunId { get; }
+
+		public bool IsAbc { get; }
+
+		public RunTask(Guid id, Guid taskRunId, bool isAbc)
 		{
 			Id = id;
+			TaskRunId = taskRunId;
+			IsAbc = isAbc;
 		}
 	}
 }

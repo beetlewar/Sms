@@ -49,6 +49,7 @@
     <Compile Include="Actor\Task.cs" />
     <Compile Include="Actor\TaskRun.cs" />
     <Compile Include="Message\CreateAgent.cs" />
+    <Compile Include="Message\JobResult.cs" />
     <Compile Include="Notification.cs" />
     <Compile Include="Message\CreateTaskRun.cs" />
     <Compile Include="Message\CreateTask.cs" />
@@ -62,6 +63,7 @@
     <Compile Include="Message\TaskRunFinished.cs" />
     <Compile Include="Port\IDecomposer.cs" />
     <Compile Include="Port\ITaskRunIdProvider.cs" />
+    <Compile Include="Port\ScanTarget.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Repository\ActorRepositoryLocator.cs" />
     <Compile Include="Repository\AgentRepository.cs" />
