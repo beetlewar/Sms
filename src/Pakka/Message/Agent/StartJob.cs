@@ -4,6 +4,7 @@ namespace Pakka.Message
 {
     public class StartJob : IMessage
     {
+        public string ActorType => ActorTypes.Agent;
         public Guid ActorId { get; }
         public Guid JobId { get; }
 

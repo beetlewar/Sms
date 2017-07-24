@@ -5,6 +5,7 @@ using Pakka.Actor;
 using Pakka.Message;
 using Pakka.Repository;
 using Xunit;
+using Pakka.Tests.Stub;
 
 namespace Pakka.Tests
 {
@@ -13,78 +14,53 @@ namespace Pakka.Tests
         private readonly ActorRepositoryLocator _actorRepositoryLocator;
         private readonly CancellationTokenSource _tokenSource;
         private readonly ActorDispatcher _actorDispatcher;
+        private readonly Guid _agentId;
 
         public UseCaseTests()
         {
-            _actorRepositoryLocator = ActorRepositoryLocator.All();
+            _agentId = Guid.NewGuid();
+
+            var decomposer = new DecomposerStub(10, _agentId);
+
+            var taskRepository = new TaskRepository(decomposer);
+
+            _actorRepositoryLocator = new ActorRepositoryLocator(
+                new AgentRepository(taskRepository),
+                taskRepository,
+                new AgentGatewayActorRepositoryStub());
 
             _tokenSource = new CancellationTokenSource();
 
             _actorDispatcher = new ActorDispatcher(
                 _actorRepositoryLocator,
                 _tokenSource.Token);
+
+            _actorRepositoryLocator.Locate(ActorTypes.Agent).GetOrCreate(_agentId);
         }
 
         [Fact]
         public void Audit()
         {
             var taskId = Guid.NewGuid();
-            var agentId = Guid.NewGuid();
 
-            _actorDispatcher.Dispatch(new CreateActor(ActorTypes.Agent, agentId));
-            _actorDispatcher.Dispatch(new CreateActor(ActorTypes.Task, taskId));
-            _actorDispatcher.Dispatch(new RunTask(taskId, agentId, 100000));
+            _actorDispatcher.Dispatch(new CreateTask(taskId));
+            _actorDispatcher.Dispatch(new RunTask(taskId));
 
-            const int timeoutSec = 60;
+            const int timeoutSec = 10;
 
-            var taskRunId = WaitTaskRunCreated(taskId, timeoutSec);
-            Assert.True(taskRunId.HasValue);
-            Assert.True(WaitTaskRunFinished(taskRunId.Value, timeoutSec));
-            Assert.True(WaitTaskIdle(taskId, timeoutSec));
+            Assert.True(WaitTaskRunFinished(taskId, timeoutSec));
 
             _tokenSource.Cancel();
         }
 
-        private Guid? WaitTaskRunCreated(Guid taskId, int seconds)
+        private bool WaitTaskRunFinished(Guid taskId, int seconds)
         {
             for (int i = 0; i < seconds; i++)
             {
                 Thread.Sleep(TimeSpan.FromSeconds(1));
 
-                var task = (Task)_actorRepositoryLocator.Locate(ActorTypes.Task).Get(taskId);
-                if (task.CurrentTaskRunId.HasValue)
-                {
-                    return task.CurrentTaskRunId;
-                }
-            }
-
-            return null;
-        }
-
-        private bool WaitTaskRunFinished(Guid taskRunId, int seconds)
-        {
-            for (int i = 0; i < seconds; i++)
-            {
-                Thread.Sleep(TimeSpan.FromSeconds(1));
-
-                var taskRun = (TaskRun)_actorRepositoryLocator.Locate(ActorTypes.TaskRun).Get(taskRunId);
-                if (taskRun.State == TaskRun.TaskRunState.Finished)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private bool WaitTaskIdle(Guid taskId, int seconds)
-        {
-            for (int i = 0; i < seconds; i++)
-            {
-                Thread.Sleep(TimeSpan.FromSeconds(1));
-
-                var task = (Task)_actorRepositoryLocator.Locate(ActorTypes.Task).Get(taskId);
-                if (task.State == Task.TaskState.Idle)
+                var task = (Task)_actorRepositoryLocator.Locate(ActorTypes.Task).GetOrCreate(taskId);
+                if (task.CurrentTaskRun != null && task.CurrentTaskRun.State == TaskRun.TaskRunState.Finished)
                 {
                     return true;
                 }
@@ -94,4 +70,3 @@ namespace Pakka.Tests
         }
     }
 }
-

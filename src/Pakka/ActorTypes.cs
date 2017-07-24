@@ -4,7 +4,6 @@
     {
         public const string Agent = "Agent";
         public const string Task = "Task";
-        public const string TaskRun = "TaskRun";
-        public const string Job = "Job";
+        public const string AgentJobGateway = "AgentJobGateway";
     }
 }

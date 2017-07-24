@@ -4,69 +4,42 @@ using Pakka.Message;
 
 namespace Pakka.Actor
 {
-    public class Job : IActor
+    public class Job
     {
-        private List<IMessage> _messages = new List<IMessage>();
-
         public Guid Id { get; }
-        public Guid? TaskRunId { get; private set; }
         public JobState State { get; private set; }
-        public Guid? AgentId { get; private set; }
+        public Guid AgentId { get; private set; }
 
-        public Job(Guid id)
+        public Job(Guid id, Guid agentId)
         {
             Id = id;
+            AgentId = agentId;
         }
 
-        public void Execute(IMessage message)
+        public IMessage StartJob()
         {
-            When((dynamic)message);
+            State = JobState.Enqueued;
+
+            return new StartJob(AgentId, Id);
         }
 
-        private void When(object message)
+        public void Enqueued()
         {
-            throw new InvalidOperationException();
+            State = JobState.Enqueued;
         }
 
-        private void When(AssignJobAgent message)
+        public void Started()
         {
-            Console.WriteLine("Agent assigned");
-
-            TaskRunId = message.TaskRunId;
-            AgentId = message.AgentId;
-            State = JobState.Assigned;
-
-            _messages.Add(new StartJob(message.AgentId, Id));
-        }
-
-        private void When(JobStarted message)
-        {
-            Console.WriteLine("Job started");
-
             State = JobState.Running;
         }
 
-        private void When(JobComplete message)
+        public void Finished()
         {
-            Console.WriteLine("Job complete");
-
             State = JobState.Finished;
-
-            _messages.Add(new FinishJobOnTaskRun(TaskRunId.Value, Id));
-        }
-
-        public IEnumerable<IMessage> GetMessages()
-        {
-            var messages = _messages;
-
-            _messages = new List<IMessage>();
-
-            return messages;
         }
 
         public enum JobState
         {
-            Assigning,
             Assigned,
             Enqueued,
             Running,

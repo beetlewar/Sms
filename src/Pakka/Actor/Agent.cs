@@ -1,48 +1,71 @@
 ﻿using System;
 using System.Collections.Generic;
 using Pakka.Message;
+using Pakka.Port;
 
 namespace Pakka.Actor
 {
     public class Agent : IActor
     {
-        private List<IMessage> _messages = new List<IMessage>();
-
         public Guid Id { get; }
 
-        public Agent(Guid id)
+        private readonly ITaskIdProvider _taskIdProvider;
+
+        public Agent(Guid id, ITaskIdProvider taskIdProvider)
         {
             Id = id;
+            _taskIdProvider = taskIdProvider;
         }
 
-        public void Execute(IMessage message)
+        public IEnumerable<IMessage> Execute(IMessage message)
         {
-            When((dynamic)message);
+            return When((dynamic)message);
         }
 
-        private void When(object message)
+        private IEnumerable<IMessage> When(object message)
         {
             throw new InvalidOperationException();
         }
 
-        private void When(StartJob message)
+        private IEnumerable<IMessage> When(CreateAgent message)
+        {
+            Console.WriteLine("Agent created");
+
+            yield break;
+        }
+
+        private IEnumerable<IMessage> When(StartJob message)
         {
             Console.WriteLine("Starting job");
 
-            _messages.Add(new JobStarted(message.JobId));
-
-            Console.WriteLine("Completing job");
-
-            _messages.Add(new JobComplete(message.JobId));
+            yield return new GatewayStartJob(message.JobId, Id);
         }
 
-        public IEnumerable<IMessage> GetMessages()
+        private IEnumerable<IMessage> When(GatewayJobEnqueued message)
         {
-            var messages = _messages;
+            Console.WriteLine("Job enqueued");
 
-            _messages = new List<IMessage>();
+            var taskId = _taskIdProvider.GetByJobId(message.JobId);
 
-            return messages;
+            yield return new JobEnqueued(taskId, message.JobId);
+        }
+
+        private IEnumerable<IMessage> When(GatewayJobStarted message)
+        {
+            Console.WriteLine("Job started");
+
+            var taskId = _taskIdProvider.GetByJobId(message.JobId);
+
+            yield return new JobStarted(taskId, message.JobId);
+        }
+
+        private IEnumerable<IMessage> When(GatewayJobFinished message)
+        {
+            Console.WriteLine("Job finished");
+
+            var taskId = _taskIdProvider.GetByJobId(message.JobId);
+
+            yield return new JobFinished(taskId, message.JobId);
         }
     }
 }

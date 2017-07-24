@@ -45,13 +45,13 @@ namespace Pakka
 
         private void Execute(IMessage message)
         {
-            var actor = _repository.Get(message.ActorId);
+            var actor = _repository.GetOrCreate(message.ActorId);
 
-            actor.Execute(message);
+            var messages = actor.Execute(message);
 
             _repository.Update(actor);
 
-            foreach (var newMessage in actor.GetMessages())
+            foreach (var newMessage in messages)
             {
                 _actorDispatcher.Dispatch(newMessage);
             }

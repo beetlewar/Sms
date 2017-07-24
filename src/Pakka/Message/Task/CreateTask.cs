@@ -2,11 +2,12 @@
 
 namespace Pakka.Message
 {
-    public class JobStarted : IMessage
+    public class CreateTask : IMessage
     {
+        public string ActorType => ActorTypes.Task;
         public Guid ActorId { get; }
 
-        public JobStarted(Guid actorId)
+        public CreateTask(Guid actorId)
         {
             ActorId = actorId;
         }

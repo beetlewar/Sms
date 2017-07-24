@@ -9,21 +9,7 @@ namespace Pakka.Repository
     {
         private readonly Dictionary<string, IActorRepository> _actorRepositories;
 
-        public static ActorRepositoryLocator All()
-        {
-            var repositories =
-                typeof(ActorRepositoryLocator)
-                .GetTypeInfo()
-                .Assembly
-                .DefinedTypes
-                .Where(t => t.ImplementedInterfaces.Any(i => i == typeof(IActorRepository)))
-                .Select(t => Activator.CreateInstance(t.AsType()))
-                .Cast<IActorRepository>();
-
-            return new ActorRepositoryLocator(repositories);
-        }
-
-        public ActorRepositoryLocator(IEnumerable<IActorRepository> actorRepositories)
+        public ActorRepositoryLocator(params IActorRepository[] actorRepositories)
         {
             _actorRepositories = actorRepositories.ToDictionary(rep => rep.ActorType);
         }

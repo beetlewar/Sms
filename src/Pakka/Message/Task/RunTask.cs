@@ -2,11 +2,12 @@
 
 namespace Pakka.Message
 {
-    public class SetTaskWaiting : IMessage
+    public class RunTask : IMessage
     {
+        public string ActorType => ActorTypes.Task;
         public Guid ActorId { get; }
 
-        public SetTaskWaiting(Guid actorId)
+        public RunTask(Guid actorId)
         {
             ActorId = actorId;
         }

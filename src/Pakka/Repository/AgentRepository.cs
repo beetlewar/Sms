@@ -1,24 +1,32 @@
 ﻿using System;
 using System.Collections.Generic;
 using Pakka.Actor;
+using Pakka.Port;
+using System.Collections.Concurrent;
 
 namespace Pakka.Repository
 {
     public class AgentRepository : IActorRepository
     {
-        private readonly Dictionary<Guid, Agent> _agents = new Dictionary<Guid, Agent>();
+        private readonly ConcurrentDictionary<Guid, Agent> _agents = new ConcurrentDictionary<Guid, Agent>();
+
+        private readonly ITaskIdProvider _taskIdProvider;
 
         public string ActorType => ActorTypes.Agent;
 
-        public IActor Create(Guid id)
+        public AgentRepository(ITaskIdProvider taskIdProvider)
         {
-            var agent = new Agent(id);
-            _agents.Add(id, agent);
-            return agent;
+            _taskIdProvider = taskIdProvider;
         }
 
-        public IActor Get(Guid id)
+        public IActor GetOrCreate(Guid id)
         {
+            Agent agent;
+            if(!_agents.TryGetValue(id, out agent)){
+                agent = new Agent(id, _taskIdProvider);
+                _agents[id] = agent;
+            }
+
             return _agents[id];
         }
 

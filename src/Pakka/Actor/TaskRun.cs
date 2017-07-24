@@ -1,80 +1,72 @@
 ﻿using System;
 using System.Collections.Generic;
 using Pakka.Message;
+using System.Linq;
+using Pakka.Port;
 
 namespace Pakka.Actor
 {
-    public class TaskRun : IActor
+    public class TaskRun
     {
-        private List<IMessage> _messages = new List<IMessage>();
-        private readonly HashSet<Guid> _jobs = new HashSet<Guid>();
-        private readonly HashSet<Guid> _finishedJobs = new HashSet<Guid>();
+        private readonly List<Job> _jobs = new List<Job>();
+        private readonly IDecomposer _decomposer;
 
         public Guid Id { get; }
-        public Guid? TaskId { get; private set; }
+        public Guid TaskId { get; }
         public TaskRunState State { get; private set; }
 
-        public TaskRun(Guid id)
+        public IEnumerable<Job> Jobs => _jobs;
+
+        public TaskRun(Guid id, Guid taskId, IDecomposer decomposer)
         {
             Id = id;
+            TaskId = taskId;
+            _decomposer = decomposer;
         }
 
-        public void Execute(IMessage message)
+        public IEnumerable<IMessage> Decompose()
         {
-            When((dynamic)message);
-        }
-
-        private void When(Decompose message)
-        {
-            Console.WriteLine($"Decomposing {message.NumJobs} jobs");
-
-            TaskId = message.TaskId;
-
-            for (var i = 0; i < message.NumJobs; i++)
+            foreach(var job in _decomposer.Decompose())
             {
-                var jobId = Guid.NewGuid();
-
-                _jobs.Add(jobId);
-
-                _messages.Add(new CreateActor(ActorTypes.Job, jobId));
-                _messages.Add(new AssignJobAgent(jobId, Id, message.AgentId));
+                _jobs.Add(job);
             }
 
             State = TaskRunState.Waiting;
 
-            _messages.Add(new SetTaskWaiting(TaskId.Value));
-
-            Console.WriteLine("TaskRun decomposed");
+            yield return new StartJobs(TaskId);
         }
 
-        private void When(FinishJobOnTaskRun message)
+        public IEnumerable<IMessage> StartJobs()
         {
-            Console.WriteLine("Job finished");
-
-            _finishedJobs.Add(message.JobId);
-
-            if (_finishedJobs.Count == _jobs.Count)
+            foreach(var job in _jobs)
             {
-                Console.WriteLine("All jobs finished");
-
-                State = TaskRunState.Finished;
-
-                _messages.Add(new TaskRunFinished(TaskId.Value, Id));
+                yield return job.StartJob();
             }
         }
 
-        private void When(object message)
+        public void JobEnqueued(Guid id)
         {
-            throw new InvalidOperationException();
+            var job = _jobs.Single(j => j.Id == id);
+            job.Enqueued();
         }
 
-        public IEnumerable<IMessage> GetMessages()
+        public void JobStarted(Guid id)
         {
-            var messages = _messages;
+            var job = _jobs.Single(j => j.Id == id);
+            job.Started();
 
-            _messages = new List<IMessage>();
+            State = TaskRunState.Running;
+        }
 
-            return messages;
+        public void JobFinished(Guid id)
+        {
+            var job = _jobs.Single(j => j.Id == id);
+            job.Finished();
+
+            if (_jobs.All(j => j.State == Job.JobState.Finished))
+            {
+                State = TaskRunState.Finished;
+            }
         }
 
         public enum TaskRunState

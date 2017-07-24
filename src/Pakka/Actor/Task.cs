@@ -1,76 +1,98 @@
 ﻿using System;
 using System.Collections.Generic;
 using Pakka.Message;
+using Pakka.Port;
 
 namespace Pakka.Actor
 {
     public class Task : IActor
     {
-        private List<IMessage> _messages = new List<IMessage>();
+        private readonly IDecomposer _decomposer;
 
-        public Guid? CurrentTaskRunId { get; private set; }
+        public TaskRun CurrentTaskRun { get; private set;}
 
         public Guid Id { get; }
 
-        public TaskState State { get; private set; }
-
-        public Task(Guid id)
+        public Task(Guid id, IDecomposer decomposer)
         {
             Id = id;
+            _decomposer = decomposer;
         }
 
-        public void Execute(IMessage message)
+        public IEnumerable<IMessage> Execute(IMessage message)
         {
-            When((dynamic)message);
+            return When((dynamic)message);
         }
 
-        private void When(RunTask message)
+        private IEnumerable<IMessage> When(CreateTask message)
         {
+            yield break;
+        }
+
+        private IEnumerable<IMessage> When(RunTask message)
+        {
+            Console.WriteLine("Running task");
+
+            var taskRun = new TaskRun(Guid.NewGuid(), Id, _decomposer);
+            CurrentTaskRun = taskRun;
+
             Console.WriteLine("Task run");
 
-            Guid taskRunId = Guid.NewGuid();
-            CurrentTaskRunId = taskRunId;
-            State = TaskState.Preparing;
-
-            _messages.Add(new CreateActor(ActorTypes.TaskRun, taskRunId));
-            _messages.Add(new Decompose(taskRunId, Id, message.AgentId, message.NumJobs));
+            yield return new Decompose(Id);
         }
 
-        private void When(SetTaskWaiting message)
+        private IEnumerable<IMessage> When(Decompose message)
         {
-            Console.WriteLine("Task waiting");
+            Console.WriteLine("Decomposing");
 
-            State = TaskState.Waiting;
-        }
+            var messages = CurrentTaskRun.Decompose();
 
-        private void When(TaskRunFinished message)
-        {
-            Console.WriteLine("TaskRun finished, Task is idle");
-
-            State = TaskState.Idle;
-        }
-
-        private void When(object message)
-        {
-            throw new InvalidOperationException();
-        }
-
-        public IEnumerable<IMessage> GetMessages()
-        {
-            var messages = _messages;
-
-            _messages = new List<IMessage>();
+            Console.WriteLine("Decomposed");
 
             return messages;
         }
 
-        public enum TaskState
+        private IEnumerable<IMessage> When(StartJobs message)
         {
-            Idle,
-            Preparing,
-            Waiting,
-            Running,
-            Stopping
+            Console.WriteLine("Starting jobs");
+
+            var messages = CurrentTaskRun.StartJobs();
+
+            Console.WriteLine("Jobs started");
+
+            return messages;
+        }
+
+        private IEnumerable<IMessage> When(JobEnqueued message)
+        {
+            Console.WriteLine("Job enqueued");
+
+            CurrentTaskRun.JobEnqueued(message.JobId);
+
+            yield break;
+        }
+
+        private IEnumerable<IMessage> When(JobStarted message)
+        {
+            Console.WriteLine("Job started");
+
+            CurrentTaskRun.JobStarted(message.JobId);
+
+            yield break;
+        }
+
+        private IEnumerable<IMessage> When(JobFinished message)
+        {
+            Console.WriteLine("Job finisihed");
+
+            CurrentTaskRun.JobFinished(message.JobId);
+
+            yield break;
+        }
+
+        private IEnumerable<IMessage> When(object message)
+        {
+            throw new InvalidOperationException();
         }
     }
 }

@@ -2,11 +2,12 @@
 
 namespace Pakka.Message
 {
-    public class JobComplete : IMessage
+    public class Decompose : IMessage
     {
+        public string ActorType => ActorTypes.Task;
         public Guid ActorId { get; }
 
-        public JobComplete(Guid actorId)
+        public Decompose(Guid actorId)
         {
             ActorId = actorId;
         }

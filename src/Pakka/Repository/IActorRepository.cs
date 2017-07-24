@@ -7,9 +7,7 @@ namespace Pakka.Repository
     {
         string ActorType { get; }
 
-        IActor Create(Guid id);
-
-        IActor Get(Guid id);
+        IActor GetOrCreate(Guid id);
 
         void Update(IActor actor);
     }
