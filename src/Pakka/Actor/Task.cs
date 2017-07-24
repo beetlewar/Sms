@@ -1,98 +1,74 @@
 ﻿using System;
 using System.Collections.Generic;
 using Pakka.Message;
-using Pakka.Port;
 
 namespace Pakka.Actor
 {
-    public class Task : IActor
-    {
-        private readonly IDecomposer _decomposer;
+	public class Task : IActor
+	{
+		public Guid Id { get; }
 
-        public TaskRun CurrentTaskRun { get; private set;}
+		public Guid? TaskRunId { get; private set; }
 
-        public Guid Id { get; }
+		public TaskState State { get; private set; }
 
-        public Task(Guid id, IDecomposer decomposer)
-        {
-            Id = id;
-            _decomposer = decomposer;
-        }
+		public Task(Guid id)
+		{
+			Id = id;
+		}
 
-        public IEnumerable<IMessage> Execute(IMessage message)
-        {
-            return When((dynamic)message);
-        }
+		public IEnumerable<Notification> Execute(object message)
+		{
+			return When((dynamic) message);
+		}
 
-        private IEnumerable<IMessage> When(CreateTask message)
-        {
-            yield break;
-        }
+		private IEnumerable<Notification> When(CreateTask message)
+		{
+			yield break;
+		}
 
-        private IEnumerable<IMessage> When(RunTask message)
-        {
-            Console.WriteLine("Running task");
+		private IEnumerable<Notification> When(RunTask message)
+		{
+			TaskRunId = Guid.NewGuid();
+			State = TaskState.CreatingTaskRun;
 
-            var taskRun = new TaskRun(Guid.NewGuid(), Id, _decomposer);
-            CurrentTaskRun = taskRun;
+			yield return new Notification(ActorTypes.TaskRun, TaskRunId.Value, new CreateTaskRun(TaskRunId.Value, Id));
+		}
 
-            Console.WriteLine("Task run");
+		private IEnumerable<Notification> When(TaskRunCreated message)
+		{
+			if (message.TaskRunId != TaskRunId)
+			{
+				throw new InvalidOperationException();
+			}
 
-            yield return new Decompose(Id);
-        }
+			State = TaskState.Running;
 
-        private IEnumerable<IMessage> When(Decompose message)
-        {
-            Console.WriteLine("Decomposing");
+			yield break;
+		}
 
-            var messages = CurrentTaskRun.Decompose();
+		private IEnumerable<Notification> When(TaskRunFinished message)
+		{
+			if (message.TaskRunId != TaskRunId)
+			{
+				throw new InvalidOperationException();
+			}
 
-            Console.WriteLine("Decomposed");
+			State = TaskState.Idle;
 
-            return messages;
-        }
+			yield break;
+		}
 
-        private IEnumerable<IMessage> When(StartJobs message)
-        {
-            Console.WriteLine("Starting jobs");
+		private IEnumerable<Notification> When(object message)
+		{
+			throw new InvalidOperationException();
+		}
 
-            var messages = CurrentTaskRun.StartJobs();
-
-            Console.WriteLine("Jobs started");
-
-            return messages;
-        }
-
-        private IEnumerable<IMessage> When(JobEnqueued message)
-        {
-            Console.WriteLine("Job enqueued");
-
-            CurrentTaskRun.JobEnqueued(message.JobId);
-
-            yield break;
-        }
-
-        private IEnumerable<IMessage> When(JobStarted message)
-        {
-            Console.WriteLine("Job started");
-
-            CurrentTaskRun.JobStarted(message.JobId);
-
-            yield break;
-        }
-
-        private IEnumerable<IMessage> When(JobFinished message)
-        {
-            Console.WriteLine("Job finisihed");
-
-            CurrentTaskRun.JobFinished(message.JobId);
-
-            yield break;
-        }
-
-        private IEnumerable<IMessage> When(object message)
-        {
-            throw new InvalidOperationException();
-        }
-    }
+		public enum TaskState
+		{
+			Idle,
+			CreatingTaskRun,
+			Running
+		}
+	}
 }

@@ -2,8 +2,8 @@
 
 namespace Pakka.Actor
 {
-    public interface IActor
-    {
-        IEnumerable<IMessage> Execute(IMessage message);
-    }
+	public interface IActor
+	{
+		IEnumerable<Notification> Execute(object message);
+	}
 }

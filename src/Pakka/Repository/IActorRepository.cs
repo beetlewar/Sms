@@ -3,12 +3,12 @@ using Pakka.Actor;
 
 namespace Pakka.Repository
 {
-    public interface IActorRepository
-    {
-        string ActorType { get; }
+	public interface IActorRepository
+	{
+		string ActorType { get; }
 
-        IActor GetOrCreate(Guid id);
+		IActor GetOrCreate(Guid id);
 
-        void Update(IActor actor);
-    }
+		void Update(IActor actor);
+	}
 }

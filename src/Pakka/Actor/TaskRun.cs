@@ -1,81 +1,93 @@
 ﻿using System;
 using System.Collections.Generic;
-using Pakka.Message;
 using System.Linq;
+using Pakka.Message;
 using Pakka.Port;
 
 namespace Pakka.Actor
 {
-    public class TaskRun
-    {
-        private readonly List<Job> _jobs = new List<Job>();
-        private readonly IDecomposer _decomposer;
+	public class TaskRun : IActor
+	{
+		private readonly List<Job> _jobs = new List<Job>();
+		private readonly IDecomposer _decomposer;
 
-        public Guid Id { get; }
-        public Guid TaskId { get; }
-        public TaskRunState State { get; private set; }
+		public Guid Id { get; }
 
-        public IEnumerable<Job> Jobs => _jobs;
+		public Guid TaskId { get; private set; }
 
-        public TaskRun(Guid id, Guid taskId, IDecomposer decomposer)
-        {
-            Id = id;
-            TaskId = taskId;
-            _decomposer = decomposer;
-        }
+		public TaskRunState State { get; private set; }
 
-        public IEnumerable<IMessage> Decompose()
-        {
-            foreach(var job in _decomposer.Decompose())
-            {
-                _jobs.Add(job);
-            }
+		public IEnumerable<Job> Jobs => _jobs;
 
-            State = TaskRunState.Waiting;
+		public TaskRun(Guid id, IDecomposer decomposer)
+		{
+			Id = id;
+			_decomposer = decomposer;
+		}
 
-            yield return new StartJobs(TaskId);
-        }
+		public IEnumerable<Notification> Execute(object message)
+		{
+			return When((dynamic) message);
+		}
 
-        public IEnumerable<IMessage> StartJobs()
-        {
-            foreach(var job in _jobs)
-            {
-                yield return job.StartJob();
-            }
-        }
+		private IEnumerable<Notification> When(CreateTaskRun message)
+		{
+			TaskId = message.TaskId;
 
-        public void JobEnqueued(Guid id)
-        {
-            var job = _jobs.Single(j => j.Id == id);
-            job.Enqueued();
-        }
+			foreach (var agentId in _decomposer.Decompose())
+			{
+				var job = new Job(Guid.NewGuid(), agentId);
+				_jobs.Add(job);
+			}
 
-        public void JobStarted(Guid id)
-        {
-            var job = _jobs.Single(j => j.Id == id);
-            job.Started();
+			State = TaskRunState.Waiting;
 
-            State = TaskRunState.Running;
-        }
+			yield return new Notification(ActorTypes.Task, TaskId, new TaskRunCreated(Id));
+			yield return new Notification(ActorTypes.TaskRun, Id, new StartJobs());
+		}
 
-        public void JobFinished(Guid id)
-        {
-            var job = _jobs.Single(j => j.Id == id);
-            job.Finished();
+		private IEnumerable<Notification> When(StartJobs message)
+		{
+			return _jobs.Select(j => j.StartJob());
+		}
 
-            if (_jobs.All(j => j.State == Job.JobState.Finished))
-            {
-                State = TaskRunState.Finished;
-            }
-        }
+		private IEnumerable<Notification> When(JobEnqueued message)
+		{
+			var job = _jobs.Single(j => j.Id == message.Id);
+			job.Enqueued();
 
-        public enum TaskRunState
-        {
-            Preparing,
-            Waiting,
-            Running,
-            Stopping,
-            Finished
-        }
-    }
+			yield break;
+		}
+
+		public IEnumerable<Notification> When(JobStarted message)
+		{
+			var job = _jobs.Single(j => j.Id == message.Id);
+			job.Started();
+
+			State = TaskRunState.Running;
+
+			yield break;
+		}
+
+		public IEnumerable<Notification> When(JobFinished message)
+		{
+			var job = _jobs.Single(j => j.Id == message.Id);
+			job.Finished();
+
+			if (_jobs.All(j => j.State == Job.JobState.Finished))
+			{
+				State = TaskRunState.Finished;
+				yield return new Notification(ActorTypes.Task, TaskId, new TaskRunFinished(Id));
+			}
+		}
+
+		public enum TaskRunState
+		{
+			Preparing,
+			Waiting,
+			Running,
+			Stopping,
+			Finished
+		}
+	}
 }
